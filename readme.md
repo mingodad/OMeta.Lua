@@ -37,7 +37,7 @@ Here it is an implementation of OMeta language in Lua.
 
 ## OMeta
 Citing [OMeta Homepage](http://www.tinlizzie.org/ometa/):
-> OMeta is a new object-oriented language for pattern matching. It is based on a variant of Parsing Expression Grammars (PEGs) which we have extended to handle arbitrary data types. 
+> OMeta is a new object-oriented language for pattern matching. It is based on a variant of Parsing Expression Grammars (PEGs) which we have extended to handle arbitrary data types.
 OMeta's general-purpose pattern matching facilities provide a natural and convenient way for programmers to implement tokenizers, parsers, visitors, and tree transformers, all of which can be extended in interesting ways using familiar object-oriented mechanisms.
 
 Most of the features of the original [OMeta](http://www.tinlizzie.org/ometa/) and in particular [OMeta/JS](../../../../alexwarth/ometa-js) implementation also apply to OMeta/Lua. [Ph.D. dissertation](http://www.vpri.org/pdf/tr2008003_experimenting.pdf) of Alessandro Warth, author of OMeta is the best source of information in the subject.
@@ -49,7 +49,7 @@ If you need more information about parsing and about Parsing Expression Grammars
 
 *Why another PEG for Lua - there is great [LPeg](http://www.inf.puc-rio.br/~roberto/lpeg/)?*
 
-This project is a part of greater effort - to create an object-oriented platform for Computer-Aided Software Engineering. 
+This project is a part of greater effort - to create an object-oriented platform for Computer-Aided Software Engineering.
 In brief: I need a very general parsing solution, modular, extensible, working on any type of input, etc. I know that most of this requirements are possible to fulfill with LPeg, but the workload would be similar and the level of control would be much worse. Moreover I already know OMeta/JS and JavaScript but my knowledge of C (needed for LPeg extending) is definitely insufficient.
 
 One more reason for porting OMeta was its solution for the [*left recursion* issue](http://www.vpri.org/pdf/tr2007002_packrat.pdf) and [memoization](https://en.wikipedia.org/wiki/Memoization) in general.
@@ -97,7 +97,7 @@ ometa Grammar2 {...}
 ometa Grammar3 merges Grammar1, Grammar2 {...}
 ```
 One thing you should be aware of is the name conflicts resolution - the Rule with conflicting name will not be merged.
-  
+
 ### Rule
 The Rule in OMeta/Lua is a kind of classifier. The Rule is a named element introduced within the Grammar or individually as a statement.
 ```lua
@@ -113,27 +113,29 @@ end
 The Rule body in OMeta (and in PEG in general) is an *ordered Choice* where every alternative is a *Sequence of Nodes*. Every Node has a dual result - a boolean indicator of success (pass or fail) and some value (it is similar to *protected call* interface in Lua). If the Node fails (first result is falsy) then whole alternative fails - a value (second result) does not matter. If all Nodes in the Sequence pass, the value (second result) of the last Node becomes the value of current alternative and the whole Choice (subsequent alternatives are not checked).
 
 ### Hello World Grammar
-A basic information on defining Rules can be summarized by the "Hello World" example - an elemental algebraic operations parser. 
+A basic information on defining Rules can be summarized by the "Hello World" example - an elemental algebraic operations parser.
 ```lua
+local OMeta = require('ometa')
+
 local ometa Calc merges require 'grammar_commons' {
   exp     = addexp,
   addexp  = addexp '+' mulexp
           | addexp '-' mulexp
           | mulexp
-          , 
+          ,
   mulexp  = mulexp '*' primexp
           | mulexp '/' primexp
           | primexp
-          , 
+          ,
   primexp = '(' exp ')'
           | numstr
-          , 
+          ,
   numstr  = '-'? digit+
-} 
+}
 ```
 Since this Grammar doesn't have any [semantic action](#semantic-actions), it does not do very much. It is able to simply consume input stream as far as it is matching Rules.
 
-### Rule features 
+### Rule features
 Below, there is an overview of the basic means used to build a Rule.
 
 |Syntax|Notes|
@@ -152,7 +154,7 @@ The PEG's *semantic actions* in OMeta/Lua are generalized to the **Host Nodes**.
 A Host Node is included in a Rule body using square brackets (`[]`). A specific kind of the Host Node and its impact on the result of a whole Rule are determined by its content.
 
 The current implementation provides three kinds of the Host Nodes:
- - **Host Expression** and **Host Statement** are corresponding to PEG's *semantic actions*, 
+ - **Host Expression** and **Host Statement** are corresponding to PEG's *semantic actions*,
  - **Host Predicate** is corresponding to *semantic predicate*.
 
 #### Host Expression
@@ -235,21 +237,23 @@ The above Rule will not work as you might expect - the first occurrence of the *
 ### Host Nodes & binding - Hello World - continued
 It is the time for our Grammar update, so:
 ```lua
+local OMeta = require('ometa')
+
 local ometa TableTreeCalc merges require'grammar_commons' {
   exp     = addexp,
-  addexp  = l:addexp '+' r:mulexp   [{'+', l, r}] 
-          | l:addexp '-' r:mulexp   [{'-', l, r}] 
+  addexp  = l:addexp '+' r:mulexp   [{'+', l, r}]
+          | l:addexp '-' r:mulexp   [{'-', l, r}]
           | mulexp
-          , 
-  mulexp  = l:mulexp '*' r:primexp  [{'*', l, r}] 
-          | l:mulexp '/' r:primexp  [{'/', l, r}] 
+          ,
+  mulexp  = l:mulexp '*' r:primexp  [{'*', l, r}]
+          | l:mulexp '/' r:primexp  [{'/', l, r}]
           | primexp
-          , 
+          ,
   primexp = '(' $^:exp ')'
           | numstr
-          , 
+          ,
   numstr  = toNumber(<'-'? digit+>)
-} 
+}
 return TableTreeCalc
 ```
 This Grammar is now able to build a simple parse tree (Lua tables hierarchy) from the expressions provided as strings, eg.:
@@ -382,51 +386,52 @@ Firstly, for convenience reason we need to rewrite our Grammar to use something 
 ```lua
 local Types = require'types'
 local class, Any, Array = Types.class, Types.Any, Types.Array
-local OMeta = require'ometa' 
+local OMeta = require'ometa'
 
 local BinOp = class {name = 'BinOp', super = {Any}} -- our new AST node type
 
 local ometa OpTreeCalc merges require'grammar_commons' {
   exp       = addexp,
-  addexp    = l:addexp "+" r:mulexp       [BinOp {operator = 'add', left = l, right = r}] 
-            | l:addexp "-" r:mulexp       [BinOp {operator = 'sub', left = l, right = r}] 
+  addexp    = l:addexp "+" r:mulexp       [BinOp {operator = 'add', left = l, right = r}]
+            | l:addexp "-" r:mulexp       [BinOp {operator = 'sub', left = l, right = r}]
             | mulexp
-            , 
-  mulexp    = l:mulexp "*" r:primexp      [BinOp {operator = 'mul', left = l, right = r}] 
-            | l:mulexp "/" r:primexp      [BinOp {operator = 'div', left = l, right = r}] 
+            ,
+  mulexp    = l:mulexp "*" r:primexp      [BinOp {operator = 'mul', left = l, right = r}]
+            | l:mulexp "/" r:primexp      [BinOp {operator = 'div', left = l, right = r}]
             | primexp
-            , 
+            ,
   primexp   = "(" $^:exp ")"
             | numstr
-            , 
+            ,
   numstr    = ws* toNumber(<"-"? digit+>),
-  special   = '+' | '-' | '*' | '/' 
-            | '(' | ')' 
-} 
+  special   = '+' | '-' | '*' | '/'
+            | '(' | ')'
+}
 ```
 BTW the Grammar uses the Tokens now, so white-space management is improved.
 
 Next, let's write a new derived (by means of merge) Grammar for parsing mixed content:
 ```lua
+local OMeta = require'ometa'
 local Aux = require 'auxiliary'
 
 local ometa MixedOTCalc merges OpTreeCalc {
   primexp   = BinOp
             | OpTreeCalc.primexp  -- "super" apply
             ,
-  numstr    = number 
+  numstr    = number
             | OpTreeCalc.numstr  -- "super" apply
             ,
   eval      = opr:&BinOp                  Aux.apply([opr.operator], unknown)
             | number
             | any:.                       [? error('unexpected expression: ' .. tostring(any))]
-            , 
+            ,
   add       = {; left:=eval, right:=eval} [! print('+', left, right)] [left + right],
   sub       = {; left:=eval, right:=eval} [! print('-', left, right)] [left - right],
   mul       = {; left:=eval, right:=eval} [! print('*', left, right)] [left * right],
   div       = {; left:=eval, right:=eval} [! print('/', left, right)] [left / right],
   unknown   = {; operator:=.}             [? error('unexpected operator: ' .. operator)]
-} 
+}
 
 MixedOTCalc.BinOp = BinOp
 return MixedOTCalc
@@ -568,7 +573,7 @@ ___
 ```lua
 static OMeta::use(grammar : Grammar) : OMeta
 ```
-It is a class (static) method. 
+It is a class (static) method.
 It accepts the Grammar package and returns an instance of OMeta used as parsing context, e.g.:
 ```lua
 local LuaGrammar = require'lua_grammar'
@@ -599,7 +604,7 @@ print(luaAst)
 ___
 ```lua
 static OMeta::doFile(path : string, translator : string [0..1]) : Grammar
-``` 
+```
 Class (static) method.
 Load, parse, translate, generate and evaluate Lua source for OMeta source file.
 For example:

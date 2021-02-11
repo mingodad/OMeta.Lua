@@ -20,60 +20,59 @@ local Record = dataType {
 
 local depth = 0
 local cache = {}
-local OMeta
+local OMeta = {}
 
-OMeta = {
-  
-  use = function(grammar)
+OMeta.use = function(grammar)
     local om = cache[grammar]
     if not om then
       om = OMeta.Input {grammar = grammar}
       cache[grammar] = om
     end
     return om
-  end;
-  
-  _do = function(oast, trans)
+end
+
+OMeta._do = function(oast, trans)
     local last = require('ometa_ast2lua_ast_' .. (trans or 'reference')).toLuaAst(oast)
     local lsrc = require 'lua_ast2source'.trans:matchMixed(last)
+    --print("\n\n", lsrc, "\n\n")
     local gmod = loadstring(lsrc)
     return gmod()
-  end;
-  
-  doFile = function(path, trans)
+end
+
+OMeta.doFile = function(path, trans)
     local oast = require 'ometa_lua_grammar'.OMetaInLuaGrammar.block:matchFile(path)
     return OMeta._do(oast, trans)
-  end;
-  
-  doString = function(str, trans)
+end
+
+OMeta.doString = function(str, trans)
     local oast = require 'ometa_lua_grammar'.OMetaInLuaGrammar.block:matchString(str)
     return OMeta._do(oast, trans)
-  end;
-}
+end
+
 
 OMeta.Input = class {
 
-  name = 'Input', 
+  name = 'Input',
   super = {Any};
 
   memoizeParameters = false;
-  
+
   apply = function(self, ruleImpl)
-    
+
     local entryState = self.stream
     local ruleType = type(ruleImpl)
-    
+
     if ruleType == 'function' then
       local pass, result = ruleImpl(self)
       if not pass then self.stream = entryState end
       return pass, result
     end
-    
+
     if ruleType == 'table' then
       local behavior = ruleImpl.behavior
       if not behavior then
         -- "plain" type as a rule
-        if ruleImpl:isInstance(self.stream._head) then 
+        if ruleImpl:isInstance(self.stream._head) then
           return self:next()
         else
           return false, self.stream._head
@@ -82,21 +81,21 @@ OMeta.Input = class {
         return self:_memoize(ruleImpl, entryState, entryState, entryState)
       end
     end
-    
+
     -- primitive Lua value (string|number|boolean)
     return self:applyWithArgs(self.grammar.exactly, ruleImpl)
   end,
-  
+
   applyWithArgs = function(self, ruleImpl, ...)
 
     local entryState = self.stream
-    
+
     if type(ruleImpl) == 'function' then
       local pass, result = ruleImpl(self, ...)
       if not pass then self.stream = entryState end
       return pass, result
     end
-    
+
     local behavior = ruleImpl.behavior
     if not behavior then
       -- expected behavior not yet specified
@@ -109,18 +108,18 @@ OMeta.Input = class {
     if fnarity < argsn then
       self.stream = self.stream:prepend(argsn - fnarity, select(fnarity + 1, ...))
     end
-    
+
     if fnarity ~= 0 and not self.memoizeParameters then
       local pass, result = behavior(self, ...)
       if not pass then self.stream = entryState end
       return pass, result
     end
 
-    return self:_memoize(ruleImpl, entryState, 
-                                   self.stream, 
+    return self:_memoize(ruleImpl, entryState,
+                                   self.stream,
                                    fnarity == 0 and self.stream or self.stream:prepend(fnarity, ...), ...)
   end,
-  
+
   _memoize = function(self, ruleImpl, entryState, undoState, memoState, ...)
     ruleImpl.count = ruleImpl.count + 1
     local record = memoState.memo[ruleImpl]
@@ -131,9 +130,9 @@ OMeta.Input = class {
       }
       memoState.memo[ruleImpl] = record
       local pass, result = ruleImpl.behavior(self, ...)
-      if not pass then 
+      if not pass then
         self.stream = entryState
-        return false, result 
+        return false, result
       end
       record.pass       = pass
       record.result     = result
@@ -144,9 +143,9 @@ OMeta.Input = class {
         while true do
           self.stream = undoState
           local pass, result = ruleImpl.behavior(self, ...)
-          if not pass 
-              or self.stream == sentinelState 
-              then break 
+          if not pass
+              or self.stream == sentinelState
+              then break
           end
           record.pass       = pass
           record.result     = result
@@ -182,7 +181,7 @@ OMeta.Input = class {
     self.stream = input.stream
     return pass, result
   end,
-  
+
   next = function(self)
     local result = self.stream:head()
     if result == nil then return false end
@@ -200,11 +199,11 @@ OMeta.Input = class {
     self.stream = tl
     return true, result
   end;
-  
+
   property = function(self, index)
     self.stream = self.stream:property(index)
   end;
-  
+
   match = function(self, ruleImpl, ...)
     local pass, result
     if not ... then
@@ -224,17 +223,17 @@ OMeta.Input = class {
     end
     return result
   end;
-  
+
   forString = function(self, str)
     self.stream = Streams.StringInputStream:new(str)
     return self
   end,
-  
+
   forTable = function(self, tab)
     self.stream = Streams.TableInputStream:new(tab)
     return self
   end,
-  
+
   forMixed = function(self, ...)
     local res, num, len = Array {}, 0, select('#', ...)
     for si = 1, len do
@@ -267,7 +266,7 @@ OMeta.Input = class {
     self.stream = Streams.TableInputStream:new(res)
     return self
   end,
-  
+
   forFile = function(self, path, binary)
     self.stream = (binary and Streams.BinaryInputStream or Streams.StringInputStream):new(utils.readFile(path))
     return self
@@ -275,10 +274,10 @@ OMeta.Input = class {
 }
 
 OMeta.Grammar = class {
-  
+
   name = 'Grammar',
-  super = {Any};  
-  
+  super = {Any};
+
   constructor = function(class, init)
     for k, v in pairs(init) do
       if OMeta.Rule:isInstance(v) then
@@ -287,7 +286,7 @@ OMeta.Grammar = class {
     end
     return init
   end;
-  
+
   merge = function(self, source)
     for k, mrule in pairs(source) do
       if OMeta.Rule:isInstance(mrule) then
@@ -314,10 +313,10 @@ OMeta.Grammar = class {
 }
 
 OMeta.Rule = class {
-  
+
   name = 'Rule',
   super = {Any};
-  
+
   constructor = function(class, init)
     if init.arity == nil then init.arity = -1 end
     if init.count == nil then init.count = 0 end
@@ -325,19 +324,19 @@ OMeta.Rule = class {
     if init.hits == nil then init.hits = 0 end
     return init
   end;
-  
+
   matchString = function(self, str, ...)
     return OMeta.use(self.grammar):forString(str):match(self, ...)
   end;
-  
+
   matchTable = function(self, tab, ...)
     return OMeta.use(self.grammar):forTable(tab):match(self, ...)
   end;
-  
+
   matchMixed = function(self, ...)
     return OMeta.use(self.grammar):forMixed(...):match(self)
   end;
-  
+
   matchFile = function(self, path, binary, ...)
     return OMeta.use(self.grammar):forFile(path, binary):match(self, ...)
   end;
